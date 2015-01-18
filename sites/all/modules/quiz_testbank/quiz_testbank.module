@@ -526,20 +526,6 @@ function quiz_testbank_myresults() {
 }
 
 /*
- * Implements user results on the testbank and allows performance of users.
- */
-function quiz_testbank_mynewresults(){
-	global $user;
-	
-	$query = db_select('quiz_node_results','qn');
-	$query->fields('qn',array('result_id'));
-	$query->condition('uid',$user->uid);
-	
-	$results = $query->execute()->fetchCol();
-	
-}
-
-/*
  * a function to get total answers
  */
 
