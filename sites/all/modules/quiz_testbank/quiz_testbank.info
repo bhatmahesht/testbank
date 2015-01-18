@@ -1,0 +1,5 @@
+name = test bank
+description = Create a test bank and allow members to take quiz based on that
+core = 7.x
+version = 7.1.1.Beta
+dependencies[] = quiz

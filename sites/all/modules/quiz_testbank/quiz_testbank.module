@@ -1,0 +1,857 @@
+<?php
+
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+/*
+ * Implements hook help
+ */
+
+function quiz_testbank_help($path) {
+	$output = "";
+	switch ($path) {
+		case 'testbank/quiz/create':
+			break;
+	}
+
+	return $output;
+}
+
+/*
+ *  Implements hook menu
+ */
+
+function quiz_testbank_menu() {
+
+	$items['testbank/quiz/create'] = array(
+		'title' => 'Create a quiz based on testbank',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('quiz_testbank_create', 2),
+		'access arguments' => array('access testbank'),
+	);
+
+	$items['testbank/quiz/myresults'] = array(
+		'title' => 'Results based on testbank',
+		'page callback' => 'quiz_testbank_myresults',
+		'access arguments' => array('access testbank'),
+	);
+
+	$items['user/quiz/%/userresults/%/result'] = array(
+		'title' => 'result for question',
+		'page callback' => 'quiz_testbank_question_result',
+		'page arguments' => array(2, 4),
+		'access arguments' => array('access testbank'),
+	);
+
+	return $items;
+}
+
+/*
+ * Implements hook menu
+ */
+
+function quiz_testbank_theme() {
+	return array(
+		'quiz_testbank_report_form' => array(
+			'render element' => 'form',
+			'template' => 'quiz-testbank-report-form',
+		),
+	);
+}
+
+/*
+ * Implements hook permission
+ */
+
+function quiz_testbank_permission() {
+	return array('access testbank' => array(
+			'title' => 'Create Quiz based on TestBank',
+			'description' => 'allows taking questions based on testbank',
+	));
+}
+
+function quiz_testbank_create($form, &$form_state) {
+
+	$form['question_mode'] = array(
+		'#title' => 'Question Mode',
+		'#type' => 'radios',
+		'#options' => array(1 => 'All Questions', 2 => 'Unused Questions', 3 => 'Incorrect Questions'),
+		'#default_value' => 1,
+		'#ajax' => array(
+			'callback' => 'quiz_testbank_categories_question_mode',
+			'wrapper' => 'question_categories'
+		)
+	);
+
+	$form['exam_mode'] = array(
+		'#title' => 'Exam Mode',
+		'#type' => 'radios',
+		'#options' => array(1 => 'Timed', 2 => 'Untimed', 3 => 'Tutor'),
+		'#default_value' => 1,
+		'#ajax' => array(
+			'callback' => 'quiz_testbank_exam_mode_time',
+			'wrapper' => 'quiz_time',
+		),
+		//'#description' => 'When the mode is timed .. How to set time? Is it based on number of questions?',
+	);
+
+	$form['questions'] = array(
+		'#title' => 'Question Categories',
+		'#type' => 'fieldset',
+		'#prefix' => '<div id = "question_categories">',
+		'#suffix' => '</div>',
+		'#collapsible' => TRUE,
+		'#collapsed' => FALSE,
+	);
+
+	$mode = !empty($form_state['values']['question_mode']) ? $form_state['values']['question_mode'] : 1;
+	$form['questions']['categories'] = array(
+		'#title' => 'Choose questions from these categories',
+		'#type' => 'checkboxes',
+		'#options' => quiz_testbank_categories($mode),
+	);
+
+
+	$form['num_questions'] = array(
+		'#type' => 'textfield',
+		'#title' => 'Number of Questions',
+		//'#description' => 'Feature not yet implemented. Please inform me how to draw number of questions.'
+		//. 'Is it by drawing random questions by each category?',
+		'#size' => 20,
+	);
+
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => 'Create Exam',
+	);
+
+	if (isset($form_state['values']['output'])) {
+		$form['output'] = array(
+			'#type' => 'markup',
+			'#markup' => $form_state['values']['output'],
+		);
+	}
+
+	return $form;
+}
+
+/*
+ * Returns categories for test bank as array
+ */
+
+function quiz_testbank_categories($mode) {
+	$query = db_select('taxonomy_term_data', 'td');
+	$query->leftjoin('taxonomy_vocabulary', 'tv', 'td.vid=tv.vid');
+	$query->leftjoin('taxonomy_index', 'ti', 'td.tid=ti.tid');
+	$query->fields('td', array('tid', 'name'));
+	$query->addExpression('count(ti.nid)', 'sum');
+	$query->condition('tv.machine_name', 'test_bank');
+	$query->groupBy('ti.tid');
+	$values = $query->execute()->fetchAll();
+	$result = array();
+	foreach ($values as $obj) {
+
+		$total = $obj->sum;
+		$used_questions = quiz_testbank_categories_used_questions_results($mode, $obj->tid);
+		$val = $total - $used_questions;
+		$result["$obj->tid"] = $obj->name . "($val /$total)";
+	}
+	return $result;
+}
+
+/*
+ * gets used questions for each category
+ */
+
+function quiz_testbank_categories_used_questions($mode, $catid) {
+	global $user;
+	$used_questions = 0;
+	switch ($mode) {
+		case '1':
+			$used_questions = 0;
+			break;
+		case '2':
+			$query = db_select('taxonomy_index', 'ti');
+			$query->rightJoin('quiz_testbank', 'qt', 'ti.nid=qt.nid');
+			$query->fields('ti', array('tid'));
+			$query->addExpression('count(ti.nid)', 'sum');
+			$query->condition('ti.tid', $catid);
+			$query->condition('qt.uid', $user->uid);
+			$query->groupBy('ti.tid');
+			$result = $query->execute()->fetch();
+			if ($result) {
+				$used_questions = $result->sum;
+			}
+			break;
+		case '3':
+			$query = db_select('taxonomy_index', 'ti');
+			$query->rightJoin('quiz_testbank', 'qt', 'ti.nid=qt.nid');
+			$query->fields('ti', array('tid'));
+			$query->addExpression('count(ti.nid)', 'sum');
+			$query->condition('ti.tid', $catid);
+			$query->condition('qt.iscorrect', 0);
+			$query->condition('qt.uid', $user->uid);
+			$query->groupBy('ti.tid');
+			$result = $query->execute()->fetch();
+			if ($result) {
+				$used_questions = $result->sum;
+			}
+			break;
+	}
+	return $used_questions;
+}
+
+/*
+ * gets unused questions for each category
+ */
+
+function quiz_testbank_categories_used_questions_results($mode, $catid) {
+	global $user;
+	$used_questions = 0;
+	switch ($mode) {
+		case '1':
+			$used_questions = 0;
+			break;
+		case '2':
+			$query = db_select('quiz_node_results_answers', 'qa');
+			$query->leftjoin('quiz_node_results', 'qr', 'qa.result_id=qr.result_id');
+			$query->leftJoin('taxonomy_index', 'ti', 'ti.nid = qa.question_nid');
+			$query->addExpression('count(DISTINCT qa.question_nid)', 'sum');
+			$query->condition('ti.tid', $catid);
+			$query->condition('qr.uid', $user->uid);
+			$query->groupBy('ti.tid');
+			$result = $query->execute()->fetch();
+			if ($result) {
+				$used_questions = $result->sum;
+			}
+			break;
+		case '3':
+			$query = db_select('quiz_node_results_answers', 'qa');
+			$query->leftjoin('quiz_node_results', 'qr', 'qa.result_id=qr.result_id');
+			$query->leftJoin('taxonomy_index', 'ti', 'ti.nid = qa.question_nid');
+			$query->addExpression('count(DISTINCT qa.question_nid)', 'sum');
+			$query->condition('ti.tid', $catid);
+			$query->condition('qr.uid', $user->uid);
+			$query->condition('qa.is_correct', 1);
+			$query->groupBy('ti.tid');
+			$result = $query->execute()->fetch();
+			if ($result) {
+				$used_questions = $result->sum;
+			}
+			break;
+	}
+	return $used_questions;
+}
+
+/*
+ * Implements submit handler for quiz_category_personal_create
+ */
+
+function quiz_testbank_create_submit($form, &$form_state) {
+	$cats = $form_state['values']['categories'];
+	$mode = $form_state['values']['question_mode'];
+	$num_questions = intval($form_state['values']['num_questions']);
+	$result = quiz_testbank_get_quiz_nid_vid();
+	$parent_nid = $result['nid'];
+	$parent_vid = $result['vid'];
+	$quiz = node_load($parent_nid);
+	$children = array();
+	foreach ($cats as $cat) {
+		if ($cat == 0) {
+			continue;
+		}
+		$query = db_select('taxonomy_term_data', 'td');
+		$query->fields('td', array('name'));
+		$query->condition('tid', $cat);
+		$name = $query->execute()->fetchColumn();
+
+		switch ($mode) {
+			case 1:
+				$query = db_select('node', 'n');
+				$query->join('taxonomy_index', 'tn', 'n.nid=tn.nid');
+				$query->fields('n', array('nid', 'vid'));
+				$query->condition('tn.tid', $cat);
+				$result = $query->execute()->fetchAll();
+				$children = array_merge($children, $result);
+				break;
+			case 2:
+				$used_nids = quiz_testbank_used_nids_results($cat);
+				$query = db_select('node', 'n');
+				$query->join('taxonomy_index', 'tn', 'n.nid=tn.nid');
+				$query->fields('n', array('nid', 'vid'));
+				$query->condition('tn.tid', $cat);
+				if (sizeof($used_nids) != 0) {
+					$query->condition('n.nid', $used_nids, 'NOT IN');
+				}
+				$result = $query->execute()->fetchAll();
+				$children = array_merge($children, $result);
+				break;
+			case 3:
+				$incorrect_nids = quiz_testbank_incorrect_nids_results($cat);
+				$query = db_select('node', 'n');
+				$query->join('taxonomy_index', 'tn', 'n.nid=tn.nid');
+				$query->fields('n', array('nid', 'vid'));
+				$query->condition('tn.tid', $cat);
+				if (count($incorrect_nids) != 0) {
+					$query->condition('n.nid', $incorrect_nids, 'NOT IN');
+				}
+				$result = $query->execute()->fetchAll();
+				$children = array_merge($children, $result);
+				break;
+		}
+	}
+	$quiz->revision = 1;
+
+	if ($num_questions > count($children)) {
+		$num_questions = count($children);
+	}
+
+	$num_questions = $num_questions == 0 ? count($children) : $num_questions;
+
+	$exam_mode = $form_state['values']['exam_mode'];
+	switch ($exam_mode) {
+		case 1:
+			$quiz->display_feedback = 1;
+			$quiz->time_limit = $num_questions * 60;
+			break;
+		case 2:
+			$quiz->display_feedback = 1;
+			$quiz->time_limit = 0;
+			break;
+		case 3:
+			$quiz->display_feedback = 1;
+			$quiz->repeat_until_correct = 1;
+			$quiz->feedback_time = 1;
+			break;
+	}
+	node_save($quiz);
+	quiz_test_bank_delete_quiz_questions($quiz->nid, $quiz->vid);
+
+	$randquetions = array_rand($children, $num_questions);
+	foreach ($randquetions as $quest) {
+		$child = $children["$quest"];
+		quiz_testbank_insert_question($parent_nid, $parent_vid, $child->nid, $child->vid);
+	}
+//	foreach ($children as $child) {
+//		quiz_testbank_insert_question($parent_nid, $parent_vid, $child->nid, $child->vid);
+//	}
+//	$node = node_load($parent_nid);
+//	$view = node_view($node, 'full');
+//	$output = drupal_render($view);
+//	$form_state['values']['output'] = $output;
+//	drupal_set_message($name);
+//
+//	$form_state['rebuild'] = TRUE;
+	drupal_goto("node/$quiz->nid");
+}
+
+/*
+ * Get quiz node id and vid
+ */
+
+function quiz_testbank_get_quiz_nid_vid() {
+	global $user;
+	$query = db_select('node', 'n');
+	$query->fields('n', array('nid', 'vid'));
+	$query->condition('type', 'quiz');
+	$query->condition('status', 1);
+	$query->condition('uid', $user->uid);
+	$result = $query->execute()->fetchAssoc();
+	if ($result == false) {
+		$node = new stdClass();
+		$node->type = 'quiz';
+		$node->title = 'Quiz based on testbank for ' . $user->name;
+		$node->uid = $user->uid;
+		$node->allow_jumping = 1;
+		$node->allow_skipping = 1;
+		$node->promote = 0;
+		node_object_prepare($node);
+		$node = node_submit($node);
+		node_save($node);
+		$result['nid'] = $node->nid;
+		$result['vid'] = $node->vid;
+	}
+	return $result;
+}
+
+/*
+ * Merge to quiz
+ */
+
+function quiz_testbank_insert_question($parent_nid, $parent_vid, $child_nid, $child_vid) {
+
+	$node = node_load($child_nid);
+	$id = db_merge('quiz_node_relationship')
+		->key(array(
+			'parent_nid' => $parent_nid,
+			'parent_vid' => $parent_vid,
+			'child_nid' => $child_nid,
+			'child_vid' => $child_vid,
+		))
+		->fields(array(
+			'parent_nid' => $parent_nid,
+			'parent_vid' => $parent_vid,
+			'child_nid' => $child_nid,
+			'child_vid' => $child_vid,
+			'question_status' => 1,
+			'max_score' => $node->max_score,
+			'auto_update_max_score' => 1,
+		))
+		->execute();
+	return $id;
+}
+
+/*
+ * ajax callback for quesiton mode
+ */
+
+/*
+ * Refresh or delete all the child nodes of a quiz
+ */
+
+function quiz_test_bank_delete_quiz_questions($parent_nid, $parent_vid) {
+	$id = db_delete('quiz_node_relationship')
+		->condition('parent_nid', $parent_nid)
+		->condition('parent_vid', $parent_vid)
+		->execute();
+	return $id;
+}
+
+function quiz_testbank_categories_question_mode($form, &$form_state) {
+	return $form['questions'];
+}
+
+/*
+ * function to get used nids of the category
+ */
+
+function quiz_testbank_used_nids($cat) {
+	global $user;
+	$query = db_select('taxonomy_index', 'ti');
+	$query->rightJoin('quiz_testbank', 'qt', 'ti.nid=qt.nid');
+	$query->fields('ti', array('nid'));
+	$query->condition('ti.tid', $cat);
+	$query->condition('qt.uid', $user->uid);
+	$nids = $query->execute()->fetchCol();
+	return $nids;
+}
+
+/*
+ * Used nids from results table
+ */
+
+function quiz_testbank_used_nids_results($cat) {
+	global $user;
+	$query = db_select('quiz_node_results_answers', 'qa');
+	$query->leftjoin('quiz_node_results', 'qr', 'qa.result_id=qr.result_id');
+	$query->leftJoin('taxonomy_index', 'ti', 'ti.nid = qa.question_nid');
+	$query->fields('qa', array('question_nid'));
+	$query->condition('ti.tid', $cat);
+	$query->condition('qr.uid', $user->uid);
+	$nids = $query->execute()->fetchCol();
+	return $nids;
+}
+
+/*
+ * Function to get incorrect nids of the category
+ */
+
+function quiz_testbank_incorrect_nids($cat) {
+	global $user;
+	$query = db_select('taxonomy_index', 'ti');
+	$query->rightJoin('quiz_testbank', 'qt', 'ti.nid=qt.nid');
+	$query->fields('ti', array('nid'));
+	$query->condition('ti.tid', $cat);
+	$query->condition('qt.iscorrect', 0);
+	$query->condition('qt.uid', $user->uid);
+	$nids = $query->execute()->fetchCol();
+	return $nids;
+}
+
+/*
+ * Function to get incorrect nids of the category from results
+ */
+
+function quiz_testbank_incorrect_nids_results($cat) {
+	global $user;
+	$query = db_select('quiz_node_results_answers', 'qa');
+	$query->leftjoin('quiz_node_results', 'qr', 'qa.result_id=qr.result_id');
+	$query->leftJoin('taxonomy_index', 'ti', 'ti.nid = qa.question_nid');
+	$query->fields('qa', array('question_nid'));
+	$query->condition('ti.tid', $cat);
+	$query->condition('qr.uid', $user->uid);
+	$query->condition('qa.is_correct', 1);
+	$nids = $query->execute()->fetchCol();
+	return $nids;
+}
+
+/*
+ * Implements results in testbank
+ */
+
+function quiz_testbank_myresults() {
+	global $user;
+	$query = db_select('taxonomy_term_data', 'td');
+	$query->leftjoin('taxonomy_vocabulary', 'tv', 'td.vid=tv.vid');
+	$query->fields('td', array('tid', 'name'));
+	$query->condition('tv.machine_name', 'test_bank');
+	$terms = $query->execute()->fetchAllKeyed();
+	$header = array('term', 'user average', 'cumulative score');
+	$rows = array();
+
+	foreach ($terms as $tid => $tname) {
+		$all_correct = quiz_testbank_user_results($tid);
+		$all = quiz_testbank_user_maxscore($tid);
+		$all = $all ? $all : 0;
+		$all_correct = $all_correct ? $all_correct : 0;
+
+		$user_correct = quiz_testbank_user_results($tid, false, $user->uid);
+		$user_all = quiz_testbank_user_maxscore($tid, $user->uid);
+		$user_all = $user_all ? $user_all : 0;
+		$user_correct = $user_correct ? $user_correct : 0;
+
+		$row = array();
+		$row[] = $tname;
+		$row[] = "$user_correct of $user_all ";
+		$row[] = "$all_correct of $all ";
+
+		$rows[] = $row;
+	}
+
+	$output = theme('table', array('header' => $header, 'rows' => $rows));
+	return $output;
+}
+
+/*
+ * a function to get total answers
+ */
+
+function quiz_testbank_user_results($cat, $iscorrect = false, $uid = 0) {
+
+	$query = db_select('quiz_node_results_answers', 'qa');
+	$query->leftjoin('quiz_node_results', 'qr', 'qa.result_id=qr.result_id');
+	$query->leftjoin('taxonomy_index', 'ti', 'qa.question_nid=ti.nid');
+	$query->addExpression('sum(qa.points_awarded)', 'total');
+	$query->condition('ti.tid', $cat);
+	if ($uid != 0) {
+		$query->condition('qr.uid', $uid);
+	}
+	if ($iscorrect != false) {
+		$query->condition('qa.is_correct', 1);
+	}
+	$query->groupBy('ti.tid');
+	$total = $query->execute()->fetchColumn();
+	return $total;
+}
+
+/*
+ * to get user total max scores for each user
+ */
+
+function quiz_testbank_user_maxscore($cat, $uid = 0) {
+	$query = db_select('quiz_node_relationship', 'qr');
+	$query->leftjoin('quiz_node_results_answers', 'qa', 'qr.child_nid=qa.question_nid');
+	$query->leftjoin('quiz_node_results', 'qnr', 'qnr.result_id=qa.result_id');
+	$query->rightjoin('taxonomy_index', 'ti', 'ti.nid=qr.child_nid');
+	$query->addExpression('sum(qr.max_score)', 'max_score');
+	if ($uid != 0) {
+		$query->condition('qnr.uid', $uid);
+	}
+	$query->condition('ti.tid', $cat);
+	$query->groupBy('ti.tid');
+	$max_score = $query->execute()->fetchColumn();
+	return $max_score;
+}
+
+/*
+ * Implements ajax callback for storing time
+ */
+
+function quiz_testbank_exam_mode_time($form, &$form_state) {
+	return $form['exam_mode']['time'];
+}
+
+/*
+ * Quiz testbank answering form alter
+ */
+
+function quiz_testbank_form_quiz_question_answering_form_alter(&$form, &$form_state) {
+	//if ($form_id == 'quiz_question_answering_form') {
+	unset($form['navigation']['back']['#attributes']);
+	$form['navigation']['op']['#value'] = t('Mark');
+	//}
+
+	$form['navigation']['save'] = array(
+		'#type' => 'submit',
+		'#value' => 'Save Quiz',
+		'#submit' => array('quiz_testbank_navigation_quiz_save_submit'),
+	);
+
+	$form['vertical'] = array(
+		'#type' => 'fieldset',
+		'#title' => 'Hints',
+		'#collpsible' => FALSE,
+		'#collapsed' => FALSE,
+	);
+	$form['vertical']['vertical_tab'] = array(
+		'#type' => 'vertical_tabs'
+	);
+
+	$question_nid = $form['question_nid']['#value'];
+	$question = node_load($question_nid);
+
+	$form['Mechanism_display'] = array(
+		'#type' => 'fieldset',
+		'#title' => 'Mechanism',
+		'#collapsible' => FALSE,
+		'#group' => 'vertical_tab',
+	);
+
+	$form['Mechanism_display']['mechanism'] = array(
+		'#type' => 'markup',
+		'#markup' => isset($question->field_mechanism['und']) ? $question->field_mechanism['und']['0']['value'] : "",
+		'#prefix' => '<div id=mechanism>',
+		'#suffix' => '</div>',
+	);
+
+	$form['Algorithm_display'] = array(
+		'#type' => 'fieldset',
+		'#title' => 'Algorithm',
+		'#collapsible' => FALSE,
+		'#group' => 'vertical_tab',
+	);
+
+	$form['Algorithm_display']['algorithm'] = array(
+		'#type' => 'markup',
+		'#markup' => isset($question->field_algorithm['und']) ? $question->field_algorithm['und']['0']['value'] : '',
+		'#prefix' => '<div id=algorithm>',
+		'#suffix' => '</div>',
+	);
+
+	$form['Key_points_display'] = array(
+		'#type' => 'fieldset',
+		'#title' => 'Key Points',
+		'#collapsible' => FALSE,
+		'#group' => 'vertical_tab',
+	);
+
+	$form['Key_points_display']['key_points'] = array(
+		'#type' => 'markup',
+		'#markup' => isset($question->field_key_points['und']) ? $question->field_key_points['und']['0']['value'] : '',
+		'#prefix' => '<div id=key_points>',
+		'#suffix' => '</div>',
+	);
+
+	$form['Evidence_display'] = array(
+		'#type' => 'fieldset',
+		'#title' => 'Evidence',
+		'#collapsible' => FALSE,
+		'#group' => 'vertical_tab',
+	);
+
+	$form['Evidence_display']['evidence'] = array(
+		'#type' => 'markup',
+		'#markup' => isset($question->field_evidence['und']) ? $question->field_evidence['und']['0']['value'] : '',
+		'#prefix' => '<div id=evidence>',
+		'#suffix' => '</div>',
+	);
+
+	return $form;
+}
+
+/*
+ * Implements hook theme reqistry alter
+ */
+
+function quiz_testbank_theme_registry_alter(&$theme_registry) {
+	$results = $theme_registry['quiz_user_summary'];
+	$theme_registry['quiz_user_summary']['file'] = 'quiz_testbank.module';
+	$theme_registry['quiz_user_summary']['theme path'] = drupal_get_path('module', 'quiz_testbank');
+	$theme_registry['quiz_user_summary']['function'] = 'theme_quiz_testbank_get_user_results';
+
+	$quiz_node = $theme_registry['quiz_admin_summary'];
+	$theme_registry['quiz_admin_summary']['file'] = 'quiz_testbank.module';
+	$theme_registry['quiz_admin_summary']['theme path'] = drupal_get_path('module', 'quiz_testbank');
+	$theme_registry['quiz_admin_summary']['function'] = 'theme_quiz_testbank_quiz_admin_summary';
+
+	$quiz_take_summary = $theme_registry['quiz_take_summary'];
+	$theme_registry['quiz_take_summary']['file'] = 'quiz_testbank.module';
+	$theme_registry['quiz_take_summary']['theme path'] = drupal_get_path('module', 'quiz_testbank');
+	$theme_registry['quiz_take_summary']['function'] = 'theme_quiz_testbank_quiz_take_summary';
+}
+
+/*
+ * Implements form to display question result
+ */
+
+function quiz_testbank_question_result($result_id, $question_id) {
+	global $user;
+	$result = db_query('SELECT qnp.nid, qnp.vid, qnrs.uid
+    FROM {quiz_node_properties} qnp
+    INNER JOIN {quiz_node_results} qnrs ON qnrs.vid = qnp.vid
+    WHERE qnrs.result_id = :rid', array(':rid' => $result_id))->fetch();
+	$form = array();
+	if ($result->nid) {
+		// User can view own results (quiz_menu sets access to 'own results').
+		// User with role 'user results' can view other user's results.
+		if ($result->uid != $user->uid && !user_access('view any quiz results')) {
+			drupal_access_denied();
+			return;
+		}
+
+		$quiz = node_load($result->nid, $result->vid);
+		$questions = _quiz_get_answers($quiz, $result_id);
+
+		$question = $questions[$question_id];
+
+		$module = quiz_question_module_for_type($question->type);
+		if (!$module) {
+			return array();
+		}
+		$function = $module . '_report_form';
+		$form_to_add = $function($question, TRUE, TRUE);
+		if (isset($form_to_add['submit'])) {
+			$show_submit = TRUE;
+		}
+		$keys = array_keys($questions);
+
+		$prev = false;
+		$current = $question_id;
+		$next = true;
+		reset($keys);
+		foreach ($keys as $i => $key) {
+			if ($current == $key) {
+				$i == 0 ? $prev = false : $prev = $keys[$i - 1];
+				$i == (count($keys) - 1) ? $next = false : $next = $keys[$i + 1];
+				break;
+			}
+		}
+		$prevlink = "user/quiz/$result_id/userresults/";
+		$nextlink = "user/quiz/$result_id/userresults/";
+		if ($prev != false) {
+			$prevlink.="$prev/result";
+		}
+		if ($next != false) {
+			$nextlink.= "$next/result";
+		}
+		$form_to_add['navigation']['prev_question'] = array(
+			'#markup' => l('previous question', $prevlink),
+		);
+
+		$form_to_add['navigation']['next_question'] = array(
+			'#markup' => l('next question', $nextlink),
+		);
+
+		$form[] = $form_to_add;
+	}
+	$form['#theme'] = 'quiz_testbank_report_form';
+	$form['#showpoints'] = FALSE;
+	$form['#showfeedback'] = TRUE;
+	$form['#tree'] = TRUE;
+
+	$output = drupal_render($form);
+	return $output;
+}
+
+function theme_quiz_testbank_get_user_results($variables) {
+	$questions = $variables['questions'];
+	$rid = $variables['rid'];
+	$header = array('No', 'Question', 'Correct', 'Score');
+	$rows = array();
+	$i = 1;
+	foreach ($questions as $question) {
+		$row['No'] = $i;
+		$row['Question'] = l($question->title, "user/quiz/$rid/userresults/$question->nid/result");
+		$row['Correct'] = $question->correct ? "Correct" : "Wrong";
+		$row['Score'] = $question->correct ? $question->max_score : 0;
+		$rows[] = $row;
+		$i++;
+	}
+	$output = theme('table', array('header' => $header, 'rows' => $rows));
+	return $output;
+}
+
+function theme_quiz_testbank_quiz_admin_summary($variables) {
+	$questions = $variables['questions'];
+	$rid = $variables['rid'];
+	$header = array('No', 'Question', 'Correct', 'Score');
+	$rows = array();
+	$i = 1;
+	foreach ($questions as $question) {
+		$row['No'] = $i;
+		$row['Question'] = l($question->title, "user/quiz/$rid/userresults/$question->nid/result");
+		$row['Correct'] = $question->correct ? "Correct" : "Wrong";
+		$row['Score'] = $question->correct ? $question->max_score : 0;
+		$rows[] = $row;
+		$i++;
+	}
+	$output = theme('table', array('header' => $header, 'rows' => $rows));
+	return $output;
+}
+
+/*
+ * Implements theming of quiz_take_summary
+ */
+
+function theme_quiz_testbank_quiz_take_summary($variables) {
+	$quiz = $variables['quiz'];
+	$questions = $variables['questions'];
+	$score = $variables['score'];
+	$summary = $variables['summary'];
+	$rid = $variables['rid'];
+	// Set the title here so themers can adjust.
+	drupal_set_title($quiz->title);
+
+	// Display overall result.
+	$output = '';
+	if (!empty($score['possible_score'])) {
+		if (!$score['is_evaluated']) {
+			if (user_access('score taken quiz answer')) {
+				$msg = t('Parts of this @quiz have not been evaluated yet. The score below is not final. <a class="self-score" href="!result_url">Click here</a> to give scores on your own.', array('@quiz' => QUIZ_NAME, '!result_url' => url('node/' . $quiz->nid . '/results/' . $rid)));
+			} else {
+				$msg = t('Parts of this @quiz have not been evaluated yet. The score below is not final.', array('@quiz' => QUIZ_NAME));
+			}
+			drupal_set_message($msg, 'warning');
+		}
+		$output .= '<div id="quiz_score_possible">' . t('You got %num_correct of %question_count possible points.', array('%num_correct' => $score['numeric_score'], '%question_count' => $score['possible_score'])) . '</div>' . "\n";
+		$output .= '<div id="quiz_score_percent">' . t('Your score: %score %', array('%score' => $score['percentage_score'])) . '</div>' . "\n";
+	}
+	if (isset($summary['passfail'])) {
+		$output .= '<div id="quiz_summary">' . $summary['passfail'] . '</div>' . "\n";
+	}
+	if (isset($summary['result'])) {
+		$output .= '<div id="quiz_summary">' . $summary['result'] . '</div>' . "\n";
+	}
+	// Get the feedback for all questions. These are included here to provide maximum flexibility for themers
+	if ($quiz->display_feedback) {
+
+		$header = array('No', 'Question', 'Correct', 'Score');
+		$rows = array();
+		$i = 1;
+		foreach ($questions as $question) {
+			$row['No'] = $i;
+			$row['Question'] = l($question->title, "user/quiz/$rid/userresults/$question->nid/result");
+			$row['Correct'] = $question->correct ? "Correct" : "Wrong";
+			$row['Score'] = $question->correct ? $question->max_score : 0;
+			$rows[] = $row;
+			$i++;
+		}
+		$output .= theme('table', array('header' => $header, 'rows' => $rows));
+//    $form = drupal_get_form('quiz_report_form', $questions);
+//    $output .= drupal_render($form);
+	}
+	return $output;
+}
+
+/*
+ * Implements navigation button for saving quiz
+ */
+
+function quiz_testbank_navigation_quiz_save_submit($form, &$form_state) {
+	global $user;
+	drupal_set_message("Quiz has been saved");
+	drupal_goto("user/$user->uid/myresults");
+}

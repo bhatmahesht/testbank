@@ -1,0 +1,58 @@
+<?php
+
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+/*
+ * Implements hook schema
+ */
+
+function quiz_testbank_schema() {
+
+//	$schema['quiz_testbank'] = array(
+//		'description' => 'Stores questions and their status for each user',
+//		'fields' => array(
+//			'nid' => array(
+//				'description' => 'Stores node id of the question',
+//				'type' => 'int',
+//				'unsigned' => TRUE,
+//				'not null' => TRUE,
+//			),
+//			'uid' => array(
+//				'description' => 'Stores user id of the quiz taker',
+//				'type' => 'int',
+//				'unsigned' => TRUE,
+//				'not null' => TRUE,
+//			),
+//			'iscorrect' => array(
+//				'description' => 'Stores weather answer is correct or false',
+//				'type' => 'int',
+//				'size' => 'tiny',
+//				'unsigned' => TRUE,
+//				'not null' => TRUE,
+//			),
+//			'last_access_time' => array(
+//				'description' => 'Stores last accessed time in quiz',
+//				'type' => 'int',
+//				'unsigned' => TRUE,
+//				'not null' => TRUE,
+//			),
+//		),
+//		'primary key' => array('nid', 'uid'),
+//		'foreign keys' => array(
+//			'node' => array(
+//				'table' => 'node',
+//				'columns' => array('nid' => 'nid'),
+//			),
+//			'user' => array(
+//				'table' => 'users',
+//				'columns' => array('uid' => 'uid'),
+//			),
+//		),
+//	);
+//
+//	return $schema;
+}
