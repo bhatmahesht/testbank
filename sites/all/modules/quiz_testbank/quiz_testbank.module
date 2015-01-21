@@ -35,7 +35,7 @@ function quiz_testbank_menu() {
 
 	$items['testbank/quiz/myresults'] = array(
 		'title' => 'Results based on testbank',
-		'page callback' => 'quiz_testbank_myresults',
+		'page callback' => 'quiz_testbank_mynewresults',
 		'access arguments' => array('access testbank'),
 	);
 
@@ -59,7 +59,19 @@ function quiz_testbank_theme() {
 			'render element' => 'form',
 			'template' => 'quiz-testbank-report-form',
 		),
+		'quiz_testbank_quiz_result_questions' => array(
+			'variables' => array('questions' => NULL, 'rid' => NULL),
+		),
 	);
+}
+
+/*
+ * Implements hook init to add stylesheets
+ */
+
+function quiz_testbank_init() {
+	$path = drupal_get_path('module', 'quiz_testbank');
+	drupal_add_css($path . "/quiz_testbank.css");
 }
 
 /*
@@ -526,6 +538,84 @@ function quiz_testbank_myresults() {
 }
 
 /*
+  <<<<<<< OURS
+ * Implements user results on the testbank and allows performance of users.
+ */
+
+function quiz_testbank_mynewresults() {
+	global $user;
+	$query = db_select('taxonomy_term_data', 'td');
+	$query->leftjoin('taxonomy_vocabulary', 'tv', 'td.vid=tv.vid');
+	$query->fields('td', array('tid', 'name'));
+	$query->condition('tv.machine_name', 'test_bank');
+	$terms = $query->execute()->fetchAllKeyed();
+
+	$header = array('Category', 'user average', 'cumulative average' => 'Cumulative average of all users');
+	$rows = array();
+	foreach ($terms as $tid => $term) {
+		$user_scores = quiz_testbank_get_user_score_term($tid, $user->uid);
+		$total_scores = quiz_testbank_get_user_score_term($tid);
+		$row['Category'] = $term;
+		$row['user average'] = $user_scores['user_score'] . " of " . $user_scores['max_score'];
+		$row['cumulative average'] = $total_scores['user_score'] . " of " . $total_scores['max_score'];
+		$rows[] = $row;
+	}
+
+	return theme('table', array('header' => $header, 'rows' => $rows));
+}
+
+/*
+ * Implements a function get user score for term
+ */
+
+function quiz_testbank_get_user_score_term($tid, $uid = 0) {
+	$query = db_select('quiz_node_results_answers', 'qna');
+	$query->leftJoin('quiz_node_results', 'qnr', 'qna.result_id=qnr.result_id');
+	$query->leftJoin('taxonomy_index', 'ti', 'ti.nid = qna.question_nid');
+	$query->fields('qna', array('result_id', 'question_nid', 'question_vid', 'points_awarded'));
+	$query->fields('qnr', array('nid', 'vid'));
+	$query->fields('ti', array('tid'));
+	if ($uid != 0) {
+		$query->condition('qnr.uid', $uid);
+	}
+	$query->condition('ti.tid', $tid);
+	$query->condition('qnr.is_evaluated', 1);
+	$results = $query->execute()->fetchAll(PDO::FETCH_ASSOC);
+	$user_score = 0;
+	$user_max_score = 0;
+
+	foreach ($results as $result) {
+		$user_score += $result['points_awarded'];
+		$user_max_score += quiz_testbank_get_max_score($result['nid'], $result['vid'], $result['question_nid'], $result['question_vid']);
+	}
+
+	$ret = array();
+	$ret['user_score'] = $user_score;
+	$ret['max_score'] = $user_max_score;
+
+	return $ret;
+}
+
+/*
+ * Gets max score for a question
+ */
+
+function quiz_testbank_get_max_score($parent_nid, $parent_vid, $child_nid, $child_vid) {
+
+	$query = db_select('quiz_node_relationship', 'qns');
+	$query->fields('qns', array('max_score'));
+	$query->condition('qns.parent_nid', $parent_nid);
+	$query->condition('qns.parent_vid', $parent_vid);
+	$query->condition('qns.child_nid', $child_nid);
+	$query->condition('qns.child_vid', $child_vid);
+
+	$max_score = $query->execute()->fetchColumn();
+	return $max_score;
+}
+
+/*
+  =======
+  >>>>>>> THEIRS
  * a function to get total answers
  */
 
@@ -681,6 +771,11 @@ function quiz_testbank_theme_registry_alter(&$theme_registry) {
 	$theme_registry['quiz_take_summary']['file'] = 'quiz_testbank.module';
 	$theme_registry['quiz_take_summary']['theme path'] = drupal_get_path('module', 'quiz_testbank');
 	$theme_registry['quiz_take_summary']['function'] = 'theme_quiz_testbank_quiz_take_summary';
+
+	$quiz_jumber = $theme_registry['quiz_jumper'];
+	$theme_registry['quiz_jumper']['file'] = 'quiz_testbank.module';
+	$theme_registry['quiz_jumper']['theme path'] = drupal_get_path('module', 'quiz_testbank');
+	$theme_registry['quiz_jumper']['function'] = 'theme_quiz_testbank_quiz_jumper';
 }
 
 /*
@@ -737,6 +832,20 @@ function quiz_testbank_question_result($result_id, $question_id) {
 		if ($next != false) {
 			$nextlink.= "$next/result";
 		}
+		$node = node_load($question->nid, $question->vid);
+		$term = taxonomy_term_load($node->field_category['und']['0']['tid'])->name;
+		$form_to_add['navigation']['category'] = array(
+			'#markup' => "Questin Category : $term",
+			'#prefix' => '<div>',
+			'#suffix' => '</div>',
+		);
+
+		$form_to_add['navigation']['counter'] = array(
+			'#markup' => "Question No " . ($i + 1) . " of " . count($keys),
+			'#prefix' => '<div>',
+			'#suffix' => '</div>',
+		);
+
 		$form_to_add['navigation']['prev_question'] = array(
 			'#markup' => l('previous question', $prevlink),
 		);
@@ -759,18 +868,21 @@ function quiz_testbank_question_result($result_id, $question_id) {
 function theme_quiz_testbank_get_user_results($variables) {
 	$questions = $variables['questions'];
 	$rid = $variables['rid'];
-	$header = array('No', 'Question', 'Correct', 'Score');
+	$header = array('No', 'Question', 'Category', 'Correct', 'Score');
 	$rows = array();
 	$i = 1;
 	foreach ($questions as $question) {
 		$row['No'] = $i;
 		$row['Question'] = l($question->title, "user/quiz/$rid/userresults/$question->nid/result");
+		$node = node_load($question->nid, $question->vid);
+		$category = taxonomy_term_load($node->field_category['und']['0']['tid'])->name;
+		$row['Category'] = $category;
 		$row['Correct'] = $question->correct ? "Correct" : "Wrong";
 		$row['Score'] = $question->correct ? $question->max_score : 0;
 		$rows[] = $row;
 		$i++;
 	}
-	$output = theme('table', array('header' => $header, 'rows' => $rows));
+	$output = theme('quiz_testbank_quiz_result_questions', array('questions' => $questions, 'rid' => $rid));
 	return $output;
 }
 
@@ -783,12 +895,15 @@ function theme_quiz_testbank_quiz_admin_summary($variables) {
 	foreach ($questions as $question) {
 		$row['No'] = $i;
 		$row['Question'] = l($question->title, "user/quiz/$rid/userresults/$question->nid/result");
+		$node = node_load($question->nid, $question->vid);
+		$category = taxonomy_term_load($node->field_category['und']['0']['tid'])->name;
+		$row['Category'] = $category;
 		$row['Correct'] = $question->correct ? "Correct" : "Wrong";
 		$row['Score'] = $question->correct ? $question->max_score : 0;
 		$rows[] = $row;
 		$i++;
 	}
-	$output = theme('table', array('header' => $header, 'rows' => $rows));
+	$output .= theme('quiz_testbank_quiz_result_questions', array('questions' => $questions, 'rid' => $rid));
 	return $output;
 }
 
@@ -839,7 +954,7 @@ function theme_quiz_testbank_quiz_take_summary($variables) {
 			$rows[] = $row;
 			$i++;
 		}
-		$output .= theme('table', array('header' => $header, 'rows' => $rows));
+		$output .= theme('quiz_testbank_quiz_result_questions', array('questions' => $questions, 'rid' => $rid));
 //    $form = drupal_get_form('quiz_report_form', $questions);
 //    $output .= drupal_render($form);
 	}
@@ -854,4 +969,59 @@ function quiz_testbank_navigation_quiz_save_submit($form, &$form_state) {
 	global $user;
 	drupal_set_message("Quiz has been saved");
 	drupal_goto("user/$user->uid/myresults");
+}
+
+/*
+ * Implements theme for showing results in questions correct display
+ */
+
+function theme_quiz_testbank_quiz_result_questions($variables) {
+	$questions = $variables['questions'];
+	$rid = $variables['rid'];
+	$header = array('No', 'Question', 'Category', 'Correct', 'Score');
+	$rows = array();
+	$i = 1;
+	foreach ($questions as $question) {
+		$row['No'] = $i;
+		$row['Question'] = l($question->title, "user/quiz/$rid/userresults/$question->nid/result");
+		$node = node_load($question->nid, $question->vid);
+		$category = taxonomy_term_load($node->field_category['und']['0']['tid'])->name;
+		$row['Category'] = $category;
+		$row['Correct'] = $question->correct ? "Correct" : "Wrong";
+		$row['Score'] = $question->correct ? $question->max_score : 0;
+		$rows[] = $row;
+		$i++;
+	}
+	$output = theme('table', array('header' => $header, 'rows' => $rows));
+	return $output;
+}
+
+/*
+ * Implements quiz jumper theme
+ */
+
+function theme_quiz_testbank_quiz_jumper($variables) {
+	$current = $variables['current'];
+	$num_questions = $variables['num_questions'];
+	$size = $num_questions > 20 ? 20 : $num_questions;
+	$output = '<select name="quiz-jumper" class="form-select" size = "' . $size . '" id="quiz-testbank-jumper">';
+	for ($i = 1; $i <= $num_questions; $i++) {
+		$extra = $i == $current ? ' selected="selected"' : '';
+		$output .= '<option value="' . $i . '"' . $extra . '>' . $i . '</option>';
+	}
+	$output .= '</select><span id="quiz-jumper-no-js">' . $current . '</span>';
+	drupal_add_js('
+    (function ($) {
+      Drupal.behaviors.quizJumper = {
+        attach: function(context, settings) {
+          $("#quiz-testbank-jumper:not(.quizJumper-processed)", context).show().addClass("quizJumper-processed").change(function(){
+            $("[name=jump_to_question]").val($(this).val());
+            $("#edit-submit").trigger("click");
+          });
+          $("#quiz-jumper-no-js:not(.quizJumper-processed)").hide().addClass("quizJumper-processed");
+        }
+      };
+    })(jQuery);
+  ', array('type' => 'inline', 'scope' => JS_DEFAULT));
+	return $output;
 }
