@@ -161,7 +161,7 @@ function quiz_testbank_categories($mode) {
 	$query->fields('td', array('tid', 'name'));
 	$query->addExpression('count(ti.nid)', 'sum');
 	$query->condition('tv.machine_name', 'test_bank');
-	$query->groupBy('ti.tid');
+	$query->groupBy('td.tid');
 	$values = $query->execute()->fetchAll();
 	$result = array();
 	foreach ($values as $obj) {
@@ -340,12 +340,12 @@ function quiz_testbank_create_submit($form, &$form_state) {
 			break;
 	}
 	node_save($quiz);
-	quiz_test_bank_delete_quiz_questions($quiz->nid, $quiz->vid);
+	//quiz_test_bank_delete_quiz_questions($quiz->nid, $quiz->vid);
 
 	$randquetions = array_rand($children, $num_questions);
 	foreach ($randquetions as $quest) {
 		$child = $children["$quest"];
-		quiz_testbank_insert_question($parent_nid, $parent_vid, $child->nid, $child->vid);
+		quiz_testbank_insert_question($quiz->nid, $quiz->vid, $child->nid, $child->vid);
 	}
 //	foreach ($children as $child) {
 //		quiz_testbank_insert_question($parent_nid, $parent_vid, $child->nid, $child->vid);
@@ -776,6 +776,11 @@ function quiz_testbank_theme_registry_alter(&$theme_registry) {
 	$theme_registry['quiz_jumper']['file'] = 'quiz_testbank.module';
 	$theme_registry['quiz_jumper']['theme path'] = drupal_get_path('module', 'quiz_testbank');
 	$theme_registry['quiz_jumper']['function'] = 'theme_quiz_testbank_quiz_jumper';
+
+	$quiz_progress = $theme_registry['quiz_progress'];
+	$theme_registry['quiz_progress']['file'] = 'quiz_testbank.module';
+	$theme_registry['quiz_progress']['theme path'] = drupal_get_path('module', 'quiz_testbank');
+	$theme_registry['quiz_progress']['function'] = 'theme_quiz_testbank_quiz_progress';
 }
 
 /*
@@ -1003,7 +1008,7 @@ function theme_quiz_testbank_quiz_result_questions($variables) {
 function theme_quiz_testbank_quiz_jumper($variables) {
 	$current = $variables['current'];
 	$num_questions = $variables['num_questions'];
-	$size = $num_questions > 20 ? 20 : $num_questions;
+	$size = $num_questions < 20 ? 20 : $num_questions;
 	$output = '<select name="quiz-jumper" class="form-select" size = "' . $size . '" id="quiz-testbank-jumper">';
 	for ($i = 1; $i <= $num_questions; $i++) {
 		$extra = $i == $current ? ' selected="selected"' : '';
@@ -1023,5 +1028,35 @@ function theme_quiz_testbank_quiz_jumper($variables) {
       };
     })(jQuery);
   ', array('type' => 'inline', 'scope' => JS_DEFAULT));
+	return $output;
+}
+
+/*
+ * Implements quiz_progress block
+ */
+
+function theme_quiz_testbank_quiz_progress($variables) {
+	$question_number = $variables['question_number'];
+	$num_of_question = $variables['num_questions'];
+	// TODO Number of parameters in this theme funcion does not match number of parameters found in hook_theme.
+	// Determine the percentage finished (not used, but left here for other implementations).
+	//$progress = ($question_number*100)/$num_of_question;
+	// Get the current question # by adding one.
+	$current_question = $question_number + 1;
+	$quiz_jumper = '';
+
+	if ($variables['allow_jumping']) {
+		$quiz_jumper = theme('quiz_jumper', array('current' => $current_question, 'num_questions' => $num_of_question));
+	}
+
+	$output = '';
+	$output .= $quiz_jumper;
+	$output .= '<div id="quiz_progress">';
+	$output .= t('Question <span id="quiz-question-number">!x</span> of <span id="quiz-num-questions">@y</span>', array('!x' => $current_question, '@y' => $num_of_question));
+	$output .= '</div>' . "\n";
+	// Add div to be used by jQuery countdown
+	if ($variables['time_limit']) {
+		$output .= '<div class="countdown"></div>';
+	}
 	return $output;
 }
