@@ -266,10 +266,7 @@ function quiz_testbank_create_submit($form, &$form_state) {
 	$cats = $form_state['values']['categories'];
 	$mode = $form_state['values']['question_mode'];
 	$num_questions = intval($form_state['values']['num_questions']);
-	$result = quiz_testbank_get_quiz_nid_vid();
-	$parent_nid = $result['nid'];
-	$parent_vid = $result['vid'];
-	$quiz = node_load($parent_nid);
+
 	$children = array();
 	foreach ($cats as $cat) {
 		if ($cat == 0) {
@@ -315,6 +312,8 @@ function quiz_testbank_create_submit($form, &$form_state) {
 				break;
 		}
 	}
+	$node = quiz_testbank_create_new_quiz();
+	$quiz = node_load($node->nid, $node->vid);
 	$quiz->revision = 1;
 
 	if ($num_questions > count($children)) {
@@ -328,18 +327,21 @@ function quiz_testbank_create_submit($form, &$form_state) {
 		case 1:
 			$quiz->display_feedback = 1;
 			$quiz->time_limit = $num_questions * 60;
+			$quiz->title .= " time limit";
 			break;
 		case 2:
 			$quiz->display_feedback = 1;
 			$quiz->time_limit = 0;
+			$quiz->title .= ' untimed';
 			break;
 		case 3:
 			$quiz->display_feedback = 1;
 			$quiz->repeat_until_correct = 1;
 			$quiz->feedback_time = 1;
+			$quiz->title .= " training mode";
 			break;
 	}
-	node_save($quiz);
+
 	//quiz_test_bank_delete_quiz_questions($quiz->nid, $quiz->vid);
 
 	$randquetions = array_rand($children, $num_questions);
@@ -347,6 +349,11 @@ function quiz_testbank_create_submit($form, &$form_state) {
 		$child = $children["$quest"];
 		quiz_testbank_insert_question($quiz->nid, $quiz->vid, $child->nid, $child->vid);
 	}
+
+	$quiz->title .= ' ' . count($randquetions) . ' questions';
+	$quiz_created_date = date('M d Y');
+	$quiz->title .= " on $quiz_created_date based on testbank";
+	node_save($quiz);
 //	foreach ($children as $child) {
 //		quiz_testbank_insert_question($parent_nid, $parent_vid, $child->nid, $child->vid);
 //	}
@@ -387,6 +394,25 @@ function quiz_testbank_get_quiz_nid_vid() {
 		$result['vid'] = $node->vid;
 	}
 	return $result;
+}
+
+/*
+ * Creates new quiz for the user each time he acccess testbank
+ */
+
+function quiz_testbank_create_new_quiz() {
+	global $user;
+	$node = new stdClass();
+	$node->type = 'quiz';
+	$node->title = 'Quiz for ' . $user->name;
+	$node->uid = $user->uid;
+	$node->allow_jumping = 1;
+	$node->allow_skipping = 1;
+	$node->promote = 0;
+	node_object_prepare($node);
+	$quiz = node_submit($node);
+	node_save($quiz);
+	return $quiz;
 }
 
 /*
@@ -671,7 +697,7 @@ function quiz_testbank_exam_mode_time($form, &$form_state) {
 function quiz_testbank_form_quiz_question_answering_form_alter(&$form, &$form_state) {
 	//if ($form_id == 'quiz_question_answering_form') {
 	unset($form['navigation']['back']['#attributes']);
-	$form['navigation']['op']['#value'] = t('Mark');
+
 	//}
 
 	$form['navigation']['save'] = array(
@@ -776,6 +802,7 @@ function quiz_testbank_theme_registry_alter(&$theme_registry) {
 	$theme_registry['quiz_jumper']['file'] = 'quiz_testbank.module';
 	$theme_registry['quiz_jumper']['theme path'] = drupal_get_path('module', 'quiz_testbank');
 	$theme_registry['quiz_jumper']['function'] = 'theme_quiz_testbank_quiz_jumper';
+	$theme_registry['quiz_jumper']['variables']['question_status'] = NULL;
 
 	$quiz_progress = $theme_registry['quiz_progress'];
 	$theme_registry['quiz_progress']['file'] = 'quiz_testbank.module';
@@ -1008,11 +1035,12 @@ function theme_quiz_testbank_quiz_result_questions($variables) {
 function theme_quiz_testbank_quiz_jumper($variables) {
 	$current = $variables['current'];
 	$num_questions = $variables['num_questions'];
+	$question_status = $variables['question_status'];
 	$size = $num_questions < 20 ? 20 : $num_questions;
 	$output = '<select name="quiz-jumper" class="form-select" size = "' . $size . '" id="quiz-testbank-jumper">';
 	for ($i = 1; $i <= $num_questions; $i++) {
 		$extra = $i == $current ? ' selected="selected"' : '';
-		$output .= '<option value="' . $i . '"' . $extra . '>' . $i . '</option>';
+		$output .= '<option value="' . $i . '"' . $extra . '>' . $i . '->' . $question_status[$i] . '</option>';
 	}
 	$output .= '</select><span id="quiz-jumper-no-js">' . $current . '</span>';
 	drupal_add_js('
@@ -1046,7 +1074,7 @@ function theme_quiz_testbank_quiz_progress($variables) {
 	$quiz_jumper = '';
 
 	if ($variables['allow_jumping']) {
-		$quiz_jumper = theme('quiz_jumper', array('current' => $current_question, 'num_questions' => $num_of_question));
+		$quiz_jumper = theme('quiz_jumper', array('current' => $current_question, 'num_questions' => $num_of_question, 'question_status' => $variables['question_status']));
 	}
 
 	$output = '';
@@ -1059,4 +1087,50 @@ function theme_quiz_testbank_quiz_progress($variables) {
 		$output .= '<div class="countdown"></div>';
 	}
 	return $output;
+}
+
+/*
+ * Implements preprocess function for quiz progress 
+ */
+
+function quiz_testbank_preprocess_quiz_progress(&$variables) {
+	$nid = arg(1);
+	$result_id = $_SESSION['quiz_' . $nid]['result_id'];
+	$prev_questions = $_SESSION['quiz_' . $nid]['previous_quiz_questions'];
+	$next_questions = $_SESSION['quiz_' . $nid]['quiz_questions'];
+	$questions = array_merge($prev_questions, $next_questions);
+	$q_rows = array();
+	$i = 1;
+	foreach ($questions as $question) {
+		$question_status = quiz_testbank_get_question_status_result($result_id, $question['nid'], $question['vid']);
+		$q_rows[$question['number']] = $question_status;
+		$i++;
+	}
+
+
+	$quiz = node_load($nid);
+	$variables['question_status'] = $q_rows;
+}
+
+/*
+ * Gets question status for the question id for the quiz
+ */
+
+function quiz_testbank_get_question_status_result($result_id, $q_nid, $q_vid) {
+	$query = db_select('quiz_node_results_answers', 'qna');
+	$query->fields('qna', array('is_correct', 'is_skipped'));
+	$query->condition('result_id', $result_id);
+	$query->condition('question_nid', $q_nid);
+	$query->condition('question_vid', $q_vid);
+	$result = $query->execute()->fetch();
+
+	if (!$result) {
+		return "not viewed";
+	} else {
+		if ($result->is_skipped == 1) {
+			return "marked";
+		} else {
+			return "answered";
+		}
+	}
 }
