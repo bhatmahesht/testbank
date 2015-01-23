@@ -35,32 +35,38 @@ $q_image = $p . 'question_bg.png';
 									<?php print t('Score') ?>
 									<?php print drupal_render($sub_form['score']) ?>
 									<?php print t('of') . ' ' . $sub_form['max_score']['#value'] ?>
-													<?php if ($sub_form['#is_skipped']): ?>
+									<?php if ($sub_form['#is_skipped']): ?>
 										<br><em><span class="quiz-report-skipped">
-										<?php print t('(skipped)') ?>
+														<?php print t('(skipped)') ?>
 												</span></em>
 									<?php endif; ?>
-													<?php if ($sub_form['#is_doubtful']): ?>
+									<?php if ($sub_form['#is_doubtful']): ?>
 										<br><em><span class="quiz-report-doubtful">
-										<?php print t('(Doubtful)') ?>
+														<?php print t('(Doubtful)') ?>
 												</span></em>
-	<?php endif; ?>
+									<?php endif; ?>
 							</span>
 					</div>
 					<p class="quiz-report-question"><strong><?php print t('Question') ?>: </strong></p>
-	<?php print drupal_render($sub_form['question']); ?>
+					<?php print drupal_render($sub_form['question']); ?>
 			</div>
 			<div class="dd">
 					<p><strong><?php print t('Response') ?>: </strong></p>
-	<?php print drupal_render($sub_form['response']); ?>
+					<?php print drupal_render($sub_form['response']); ?>
 			</div>
 			<div class="dd">
-			<?php print drupal_render($sub_form['answer_feedback']); ?>
+					<?php print drupal_render($sub_form['answer_feedback']); ?>
 			</div>
-				<div>
-			<?php print drupal_render($sub_form['navigation']); ?>
-		</div>
-<?php endforeach; ?>
+			<div>
+					<?php print drupal_render($sub_form['vertical']); ?>
+			</div>
+			<div>
+					<?php print drupal_render($sub_form['Mechanism_display']); ?>
+			</div>
+			<div>
+					<?php print drupal_render($sub_form['navigation']); ?>
+			</div>
+		<?php endforeach; ?>
 </div>
 <div class="quiz-score-submit"><?php print drupal_render_children($form); ?></div>
 
