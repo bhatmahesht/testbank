@@ -315,6 +315,7 @@ function quiz_testbank_create_submit($form, &$form_state) {
 	$node = quiz_testbank_create_new_quiz();
 	$quiz = node_load($node->nid, $node->vid);
 	$quiz->revision = 1;
+	$quiz->takes = 1;
 
 	if ($num_questions > count($children)) {
 		$num_questions = count($children);
@@ -697,6 +698,8 @@ function quiz_testbank_exam_mode_time($form, &$form_state) {
 function quiz_testbank_form_quiz_question_answering_form_alter(&$form, &$form_state) {
 	//if ($form_id == 'quiz_question_answering_form') {
 	unset($form['navigation']['back']['#attributes']);
+	$nid = arg(1);
+	$quiz = node_load($nid);
 
 	//}
 
@@ -706,74 +709,76 @@ function quiz_testbank_form_quiz_question_answering_form_alter(&$form, &$form_st
 		'#submit' => array('quiz_testbank_navigation_quiz_save_submit'),
 	);
 
-	$form['vertical'] = array(
-		'#type' => 'fieldset',
-		'#title' => 'Hints',
-		'#collpsible' => FALSE,
-		'#collapsed' => FALSE,
-	);
-	$form['vertical']['vertical_tab'] = array(
-		'#type' => 'vertical_tabs'
-	);
+	if ($quiz->feedback_time == 1) {
+		$form['vertical'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Hints',
+			'#collpsible' => FALSE,
+			'#collapsed' => FALSE,
+		);
+		$form['vertical']['vertical_tab'] = array(
+			'#type' => 'vertical_tabs'
+		);
 
-	$question_nid = $form['question_nid']['#value'];
-	$question = node_load($question_nid);
+		$question_nid = $form['question_nid']['#value'];
+		$question = node_load($question_nid);
 
-	$form['Mechanism_display'] = array(
-		'#type' => 'fieldset',
-		'#title' => 'Mechanism',
-		'#collapsible' => FALSE,
-		'#group' => 'vertical_tab',
-	);
+		$form['Mechanism_display'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Mechanism',
+			'#collapsible' => FALSE,
+			'#group' => 'vertical_tab',
+		);
 
-	$form['Mechanism_display']['mechanism'] = array(
-		'#type' => 'markup',
-		'#markup' => isset($question->field_mechanism['und']) ? $question->field_mechanism['und']['0']['value'] : "",
-		'#prefix' => '<div id=mechanism>',
-		'#suffix' => '</div>',
-	);
+		$form['Mechanism_display']['mechanism'] = array(
+			'#type' => 'markup',
+			'#markup' => isset($question->field_mechanism['und']) ? $question->field_mechanism['und']['0']['value'] : "",
+			'#prefix' => '<div id=mechanism>',
+			'#suffix' => '</div>',
+		);
 
-	$form['Algorithm_display'] = array(
-		'#type' => 'fieldset',
-		'#title' => 'Algorithm',
-		'#collapsible' => FALSE,
-		'#group' => 'vertical_tab',
-	);
+		$form['Algorithm_display'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Algorithm',
+			'#collapsible' => FALSE,
+			'#group' => 'vertical_tab',
+		);
 
-	$form['Algorithm_display']['algorithm'] = array(
-		'#type' => 'markup',
-		'#markup' => isset($question->field_algorithm['und']) ? $question->field_algorithm['und']['0']['value'] : '',
-		'#prefix' => '<div id=algorithm>',
-		'#suffix' => '</div>',
-	);
+		$form['Algorithm_display']['algorithm'] = array(
+			'#type' => 'markup',
+			'#markup' => isset($question->field_algorithm['und']) ? $question->field_algorithm['und']['0']['value'] : '',
+			'#prefix' => '<div id=algorithm>',
+			'#suffix' => '</div>',
+		);
 
-	$form['Key_points_display'] = array(
-		'#type' => 'fieldset',
-		'#title' => 'Key Points',
-		'#collapsible' => FALSE,
-		'#group' => 'vertical_tab',
-	);
+		$form['Key_points_display'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Key Points',
+			'#collapsible' => FALSE,
+			'#group' => 'vertical_tab',
+		);
 
-	$form['Key_points_display']['key_points'] = array(
-		'#type' => 'markup',
-		'#markup' => isset($question->field_key_points['und']) ? $question->field_key_points['und']['0']['value'] : '',
-		'#prefix' => '<div id=key_points>',
-		'#suffix' => '</div>',
-	);
+		$form['Key_points_display']['key_points'] = array(
+			'#type' => 'markup',
+			'#markup' => isset($question->field_key_points['und']) ? $question->field_key_points['und']['0']['value'] : '',
+			'#prefix' => '<div id=key_points>',
+			'#suffix' => '</div>',
+		);
 
-	$form['Evidence_display'] = array(
-		'#type' => 'fieldset',
-		'#title' => 'Evidence',
-		'#collapsible' => FALSE,
-		'#group' => 'vertical_tab',
-	);
+		$form['Evidence_display'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Evidence',
+			'#collapsible' => FALSE,
+			'#group' => 'vertical_tab',
+		);
 
-	$form['Evidence_display']['evidence'] = array(
-		'#type' => 'markup',
-		'#markup' => isset($question->field_evidence['und']) ? $question->field_evidence['und']['0']['value'] : '',
-		'#prefix' => '<div id=evidence>',
-		'#suffix' => '</div>',
-	);
+		$form['Evidence_display']['evidence'] = array(
+			'#type' => 'markup',
+			'#markup' => isset($question->field_evidence['und']) ? $question->field_evidence['und']['0']['value'] : '',
+			'#prefix' => '<div id=evidence>',
+			'#suffix' => '</div>',
+		);
+	}
 
 	return $form;
 }
