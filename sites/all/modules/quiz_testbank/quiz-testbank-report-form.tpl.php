@@ -58,10 +58,7 @@ $q_image = $p . 'question_bg.png';
 					<?php print drupal_render($sub_form['answer_feedback']); ?>
 			</div>
 			<div>
-					<?php print drupal_render($sub_form['vertical']); ?>
-			</div>
-			<div>
-					<?php print drupal_render($sub_form['Mechanism_display']); ?>
+					<?php print drupal_render($sub_form['additional']); ?>
 			</div>
 			<div>
 					<?php print drupal_render($sub_form['navigation']); ?>
