@@ -62,6 +62,10 @@ function quiz_testbank_theme() {
 		'quiz_testbank_quiz_result_questions' => array(
 			'variables' => array('questions' => NULL, 'rid' => NULL),
 		),
+		'quiz_result_summary_top' => array(
+			'variables' => array('result_id' => NULL),
+			'template' => 'quiz-testbank-quiz-result-summary-top',
+		),
 	);
 }
 
@@ -410,6 +414,7 @@ function quiz_testbank_create_new_quiz() {
 	$node->allow_jumping = 1;
 	$node->allow_skipping = 1;
 	$node->promote = 0;
+	$node->mark_doubtful = 1;
 	node_object_prepare($node);
 	$quiz = node_submit($node);
 	node_save($quiz);
@@ -872,7 +877,8 @@ function theme_quiz_testbank_get_user_results($variables) {
 		$rows[] = $row;
 		$i++;
 	}
-	$output = theme('quiz_testbank_quiz_result_questions', array('questions' => $questions, 'rid' => $rid));
+	$output = theme('quiz_result_summary_top', array('result_id' => $rid));
+	$output .= theme('quiz_testbank_quiz_result_questions', array('questions' => $questions, 'rid' => $rid));
 	return $output;
 }
 
@@ -893,6 +899,7 @@ function theme_quiz_testbank_quiz_admin_summary($variables) {
 		$rows[] = $row;
 		$i++;
 	}
+	$output = theme('quiz_result_summary_top', array('result_id' => $rid));
 	$output .= theme('quiz_testbank_quiz_result_questions', array('questions' => $questions, 'rid' => $rid));
 	return $output;
 }
@@ -1076,7 +1083,7 @@ function quiz_testbank_preprocess_quiz_progress(&$variables) {
 
 function quiz_testbank_get_question_status_result($result_id, $q_nid, $q_vid) {
 	$query = db_select('quiz_node_results_answers', 'qna');
-	$query->fields('qna', array('is_correct', 'is_skipped'));
+	$query->fields('qna', array('is_correct', 'is_skipped', 'is_doubtful'));
 	$query->condition('result_id', $result_id);
 	$query->condition('question_nid', $q_nid);
 	$query->condition('question_vid', $q_vid);
@@ -1085,10 +1092,10 @@ function quiz_testbank_get_question_status_result($result_id, $q_nid, $q_vid) {
 	if (!$result) {
 		return "not viewed";
 	} else {
-		if ($result->is_skipped == 1) {
+		if ($result->is_doubtful == 1) {
 			return "marked";
 		} else {
-			return "answered";
+			return "viewed";
 		}
 	}
 }
@@ -1167,4 +1174,38 @@ function quiz_testbank_question_additional_details($form, &$form_state, $questio
 	);
 
 	return $form;
+}
+
+/*
+ * Implements theme 'quiz_resutl_summary'
+ */
+
+function quiz_testbank_preprocess_quiz_result_summary_top(&$variables) {
+	$rid = $variables['result_id'];
+
+	$query = db_select('quiz_node_results', 'qnr');
+	$query->fields('qnr');
+	$query->condition('result_id', $rid);
+	$result = $query->execute()->fetch();
+
+	$quiz = node_load($result->nid, $result->vid);
+	$user = user_load($result->uid);
+
+	$query = db_select('quiz_node_relationship', 'qnr');
+	$query->addExpression('count(qnr.child_nid)', 'total_questions');
+	$query->condition('parent_nid', $result->nid);
+	$query->condition('parent_vid', $result->vid);
+	$total_items = $query->execute()->fetchColumn();
+	$quiz->total_questions = $total_items;
+
+	$query = db_select('quiz_node_results_answers', 'qna');
+	$query->addExpression('count(qna.question_nid)', 'correct_items');
+	$query->condition('result_id', $rid);
+	$query->condition('is_correct', 1);
+	$correct_items = $query->execute()->fetchColumn();
+	$result->correct_questions = $correct_items;
+
+	$variables['result'] = $result;
+	$variables['quiz'] = $quiz;
+	$variables['user'] = $user;
 }
