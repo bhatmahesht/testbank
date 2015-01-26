@@ -856,7 +856,8 @@ function quiz_testbank_question_result($result_id, $question_id) {
 	$form['#showfeedback'] = TRUE;
 	$form['#tree'] = TRUE;
 
-	$output = drupal_render($form);
+	$output = $output = theme('quiz_result_summary_top', array('result_id' => $result_id));
+	$output .= drupal_render($form);
 	return $output;
 }
 
