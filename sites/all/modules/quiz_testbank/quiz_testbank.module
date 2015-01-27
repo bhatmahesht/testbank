@@ -1106,74 +1106,86 @@ function quiz_testbank_get_question_status_result($result_id, $q_nid, $q_vid) {
  */
 
 function quiz_testbank_question_additional_details($form, &$form_state, $question_nid) {
-	$form['vertical'] = array(
-		'#type' => 'fieldset',
-		'#title' => 'Hints',
-		'#collpsible' => FALSE,
-		'#collapsed' => FALSE,
-	);
-	$form['vertical']['vertical_tab'] = array(
-		'#type' => 'vertical_tabs'
-	);
 
 	$question = node_load($question_nid);
+	$node_weights = _field_weight_get_node_weight($question_nid);
+	if (isset($question->field_mechanism['und']) || isset($question->field_algorithm['und']) || isset($question->field_key_points['und']) || isset($question->field_evidence['und'])) {
+		$form['vertical'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Hints',
+			'#collpsible' => FALSE,
+			'#collapsed' => FALSE,
+		);
+		$form['vertical']['vertical_tab'] = array(
+			'#type' => 'vertical_tabs'
+		);
+	}
 
-	$form['Mechanism_display'] = array(
-		'#type' => 'fieldset',
-		'#title' => 'Mechanism',
-		'#collapsible' => FALSE,
-		'#group' => 'vertical_tab',
-	);
+	if (isset($question->field_mechanism['und'])) {
+		$form['Mechanism_display'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Mechanism',
+			'#collapsible' => FALSE,
+			'#group' => 'vertical_tab',
+			'#weight' => ($node_weights != false) ? $node_weights['field_mechanism'] : 0,
+		);
 
-	$form['Mechanism_display']['mechanism'] = array(
-		'#type' => 'markup',
-		'#markup' => isset($question->field_mechanism['und']) ? $question->field_mechanism['und']['0']['value'] : "",
-		'#prefix' => '<div id=mechanism>',
-		'#suffix' => '</div>',
-	);
+		$form['Mechanism_display']['mechanism'] = array(
+			'#type' => 'markup',
+			'#markup' => isset($question->field_mechanism['und']) ? $question->field_mechanism['und']['0']['value'] : "",
+			'#prefix' => '<div id=mechanism>',
+			'#suffix' => '</div>',
+		);
+	}
+	if (isset($question->field_algorithm['und'])) {
+		$form['Algorithm_display'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Algorithm',
+			'#collapsible' => FALSE,
+			'#group' => 'vertical_tab',
+			'#weight' => ($node_weights != false) ? $node_weights['field_algorithm'] : 0,
+		);
 
-	$form['Algorithm_display'] = array(
-		'#type' => 'fieldset',
-		'#title' => 'Algorithm',
-		'#collapsible' => FALSE,
-		'#group' => 'vertical_tab',
-	);
+		$form['Algorithm_display']['algorithm'] = array(
+			'#type' => 'markup',
+			'#markup' => isset($question->field_algorithm['und']) ? $question->field_algorithm['und']['0']['value'] : '',
+			'#prefix' => '<div id=algorithm>',
+			'#suffix' => '</div>',
+		);
+	}
 
-	$form['Algorithm_display']['algorithm'] = array(
-		'#type' => 'markup',
-		'#markup' => isset($question->field_algorithm['und']) ? $question->field_algorithm['und']['0']['value'] : '',
-		'#prefix' => '<div id=algorithm>',
-		'#suffix' => '</div>',
-	);
+	if (isset($question->field_key_points['und'])) {
+		$form['Key_points_display'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Key Points',
+			'#collapsible' => FALSE,
+			'#group' => 'vertical_tab',
+			'#weight' => ($node_weights != false) ? $node_weights['field_key_points'] : 0,
+		);
 
-	$form['Key_points_display'] = array(
-		'#type' => 'fieldset',
-		'#title' => 'Key Points',
-		'#collapsible' => FALSE,
-		'#group' => 'vertical_tab',
-	);
+		$form['Key_points_display']['key_points'] = array(
+			'#type' => 'markup',
+			'#markup' => isset($question->field_key_points['und']) ? $question->field_key_points['und']['0']['value'] : '',
+			'#prefix' => '<div id=key_points>',
+			'#suffix' => '</div>',
+		);
+	}
+	if (isset($question->field_evidence['und'])) {
+		$form['Evidence_display'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Evidence',
+			'#collapsible' => FALSE,
+			'#group' => 'vertical_tab',
+			'#weight' => ($node_weights != false) ? $node_weights['field_evidence'] : 0,
+		);
 
-	$form['Key_points_display']['key_points'] = array(
-		'#type' => 'markup',
-		'#markup' => isset($question->field_key_points['und']) ? $question->field_key_points['und']['0']['value'] : '',
-		'#prefix' => '<div id=key_points>',
-		'#suffix' => '</div>',
-	);
-
-	$form['Evidence_display'] = array(
-		'#type' => 'fieldset',
-		'#title' => 'Evidence',
-		'#collapsible' => FALSE,
-		'#group' => 'vertical_tab',
-	);
-
-	$form['Evidence_display']['evidence'] = array(
-		'#type' => 'markup',
-		'#markup' => isset($question->field_evidence['und']) ? $question->field_evidence['und']['0']['value'] : '',
-		'#prefix' => '<div id=evidence>',
-		'#suffix' => '</div>',
-	);
-
+		$form['Evidence_display']['evidence'] = array(
+			'#type' => 'markup',
+			'#markup' => isset($question->field_evidence['und']) ? $question->field_evidence['und']['0']['value'] : '',
+			'#prefix' => '<div id=evidence>',
+			'#suffix' => '</div>',
+		);
+	}
 	return $form;
 }
 
@@ -1209,4 +1221,63 @@ function quiz_testbank_preprocess_quiz_result_summary_top(&$variables) {
 	$variables['result'] = $result;
 	$variables['quiz'] = $quiz;
 	$variables['user'] = $user;
+}
+
+/*
+ * Implements hook node form alter to display field weights
+ */
+
+function quiz_testbank_form_node_form_alter(&$form, $form_state) {
+	$node = $form['#node'];
+	$weight_form = array();
+	$weight_form_state = array();
+	$weight_form = field_weight_display_overview_form($weight_form, $weight_form_state, $node);
+	unset($weight_form['submit']);
+	$form['field_weight'] = $weight_form;
+	$form['field_weight']['#weight'] = 50;
+}
+
+function quiz_testbank_node_prepare($node) {
+
+	$type = $node->type;
+
+	$instances = field_info_instances('node', $node->type);
+
+	$weights = _field_weight_get_node_weight($node->nid);
+}
+
+/*
+ * Implements hook node insert to do update weights
+ */
+
+function quiz_testbank_node_submit($node, $form, &$form_state) {
+
+	$values = $form_state['values']['field_weight']['field_weight'];
+	$instances = field_info_instances('node', $node->type);
+
+	$weights = array();
+
+	foreach ($instances as $field => $instance) {
+		$weights[$field] = array(
+			'weight' => $values[$field]['weight'],
+			'hidden' => $values[$field]['hidden'],
+		);
+	}
+
+	// If all weights are 0 (unchanged) will return empty.
+	$empty_check = array_filter($weights);
+
+	if (!empty($empty_check)) {
+		db_merge('field_weight')
+			->key(array('nid' => $node->nid))
+			->fields(array(
+				'nid' => $node->nid,
+				'type' => $node->type,
+				'field_weights' => serialize($weights),
+			))
+			->execute();
+	} elseif (empty($empty_check)) {
+		// Remove entry if user manually sets all weights to 0.
+		_field_weight_remove_weights($form, $form_state);
+	}
 }
