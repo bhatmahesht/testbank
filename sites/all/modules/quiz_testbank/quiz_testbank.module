@@ -1237,22 +1237,45 @@ function quiz_testbank_form_node_form_alter(&$form, $form_state) {
 	$form['field_weight']['#weight'] = 50;
 }
 
-function quiz_testbank_node_prepare($node) {
-
-	$type = $node->type;
-
-	$instances = field_info_instances('node', $node->type);
-
-	$weights = _field_weight_get_node_weight($node->nid);
-}
-
 /*
  * Implements hook node insert to do update weights
  */
 
-function quiz_testbank_node_submit($node, $form, &$form_state) {
+function quiz_testbank_node_update($node) {
 
-	$values = $form_state['values']['field_weight']['field_weight'];
+	$values = $node->field_weight['field_weight'];
+	$instances = field_info_instances('node', $node->type);
+
+	$weights = array();
+
+	foreach ($instances as $field => $instance) {
+		$weights[$field] = array(
+			'weight' => $values[$field]['weight'],
+			'hidden' => $values[$field]['hidden'],
+		);
+	}
+
+	// If all weights are 0 (unchanged) will return empty.
+	$empty_check = array_filter($weights);
+
+	if (!empty($empty_check)) {
+		db_merge('field_weight')
+			->key(array('nid' => $node->nid))
+			->fields(array(
+				'nid' => $node->nid,
+				'type' => $node->type,
+				'field_weights' => serialize($weights),
+			))
+			->execute();
+	} elseif (empty($empty_check)) {
+		// Remove entry if user manually sets all weights to 0.
+		_field_weight_remove_weights($form, $form_state);
+	}
+}
+
+function quiz_testbank_node_insert($node) {
+
+	$values = $node->field_weight['field_weight'];
 	$instances = field_info_instances('node', $node->type);
 
 	$weights = array();
