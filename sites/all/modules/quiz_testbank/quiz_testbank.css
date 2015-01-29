@@ -9,7 +9,16 @@ and open the template in the editor.
 */
 
 #quiz-testbank-jumper {
-  display: block;
-  float: left;
-  width: 100px;
+    display: block;
+    float: left;
+    width: 100px;
 }
+
+.form-item-question-mode {
+    display:block;
+}
+
+.form-item-exam-mode {
+    display:block;
+}
+

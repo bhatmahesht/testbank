@@ -99,26 +99,34 @@ function quiz_testbank_permission() {
 
 function quiz_testbank_create($form, &$form_state) {
 
-	$form['question_mode'] = array(
+	$form['mode'] = array(
 		'#title' => 'Question Mode',
+		'#type' => 'fieldset',
+		'#collpsible' => TRUE,
+		'#collapsed' => FALSE,
+	);
+	$form['mode']['question_mode'] = array(
+		'#title' => 'Choose mode of questions',
 		'#type' => 'radios',
 		'#options' => array(1 => 'All Questions', 2 => 'Unused Questions', 3 => 'Incorrect Questions'),
 		'#default_value' => 1,
+		'#multicolumn' => array('width' => 3),
 		'#ajax' => array(
 			'callback' => 'quiz_testbank_categories_question_mode',
 			'wrapper' => 'question_categories'
 		)
 	);
-
-	$form['exam_mode'] = array(
+	$form['exam'] = array(
 		'#title' => 'Exam Mode',
+		'#type' => 'fieldset',
+		'#collapsible' => FALSE,
+		'#collapsed' => FALSE,
+	);
+	$form['exam']['exam_mode'] = array(
+		'#title' => 'Choose your Exam Mode',
 		'#type' => 'radios',
 		'#options' => array(1 => 'Timed', 2 => 'Untimed', 3 => 'Tutor'),
 		'#default_value' => 1,
-		'#ajax' => array(
-			'callback' => 'quiz_testbank_exam_mode_time',
-			'wrapper' => 'quiz_time',
-		),
 		//'#description' => 'When the mode is timed .. How to set time? Is it based on number of questions?',
 	);
 
@@ -132,10 +140,31 @@ function quiz_testbank_create($form, &$form_state) {
 	);
 
 	$mode = !empty($form_state['values']['question_mode']) ? $form_state['values']['question_mode'] : 1;
+	$options = quiz_testbank_categories($mode);
+	$selectall = !empty($form_state['values']['selectall']) ? $form_state['values']['selectall'] : 0;
+	$default_val = array();
+	if ($selectall == 1) {
+		$default_val = array_keys($options);
+	}
+	unset($form_state['input']['categories']);
 	$form['questions']['categories'] = array(
 		'#title' => 'Choose questions from these categories',
 		'#type' => 'checkboxes',
-		'#options' => quiz_testbank_categories($mode),
+		'#prefix' => '<div id="question_categoreis_all">',
+		'#suffix' => '</div>',
+		'#multicolumn' => array('width' => 2),
+		'#options' => $options,
+		'#default_value' => $default_val,
+	);
+
+	$form['questions']['selectall'] = array(
+		'#title' => 'Select all categories',
+		'#type' => 'checkbox',
+		'#default_value' => 0,
+		'#ajax' => array(
+			'callback' => 'quiz_testbank_categories_select_all',
+			'wrapper' => 'question_categoreis_all',
+		),
 	);
 
 
@@ -474,6 +503,16 @@ function quiz_test_bank_delete_quiz_questions($parent_nid, $parent_vid) {
 
 function quiz_testbank_categories_question_mode($form, &$form_state) {
 	return $form['questions'];
+}
+
+/*
+ * Ajax callback for quiz question categoreis
+ */
+
+function quiz_testbank_categories_select_all($form, &$form_state) {
+//	$form['questions']['categories']['#description'] = 'returned from ajax call';
+//	$form_state['complete form']['questions']['categories']['#defaults_loaded'] = 0;
+	return $form['questions']['categories'];
 }
 
 /*
