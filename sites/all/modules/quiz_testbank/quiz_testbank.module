@@ -735,7 +735,6 @@ function quiz_testbank_form_quiz_question_answering_form_alter(&$form, &$form_st
 			'#prefix' => '<div id=additional>',
 			'#suffix' => '</div>',
 		);
-		
 	}
 
 	return $form;
@@ -1194,6 +1193,22 @@ function quiz_testbank_question_additional_details($form, &$form_state, $questio
 			'#type' => 'markup',
 			'#markup' => isset($question->field_evidence['und']) ? $question->field_evidence['und']['0']['value'] : '',
 			'#prefix' => '<div id=evidence>',
+			'#suffix' => '</div>',
+		);
+	}
+	if (isset($question->field_answers['und'])) {
+		$form['Answers_display'] = array(
+			'#type' => 'fieldset',
+			'#title' => 'Answers',
+			'#collpsible' => FALSE,
+			'#group' => 'vertical_tab',
+			'#weight' => ($node_weights != false) ? $node_weights['field_answers'] : 0,
+		);
+
+		$form['Answers_display']['answers'] = array(
+			'#type' => 'markup',
+			'#markup' => isset($question->field_answers['und']) ? $question->field_answers['und']['0']['value'] : '',
+			'#prefix' => '<div id=answers',
 			'#suffix' => '</div>',
 		);
 	}
