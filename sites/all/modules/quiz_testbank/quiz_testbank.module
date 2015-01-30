@@ -74,6 +74,9 @@ function quiz_testbank_theme() {
 			'variables' => array('result_id' => NULL),
 			'template' => 'quiz-testbank-quiz-result-summary-top',
 		),
+		'quiz_testbank_quiz_navigation' => array(
+			'render element' => 'navigation',
+		),
 	);
 }
 
@@ -146,16 +149,6 @@ function quiz_testbank_create($form, &$form_state) {
 	if ($selectall == 1) {
 		$default_val = array_keys($options);
 	}
-	unset($form_state['input']['categories']);
-	$form['questions']['categories'] = array(
-		'#title' => 'Choose questions from these categories',
-		'#type' => 'checkboxes',
-		'#prefix' => '<div id="question_categoreis_all">',
-		'#suffix' => '</div>',
-		'#multicolumn' => array('width' => 2),
-		'#options' => $options,
-		'#default_value' => $default_val,
-	);
 
 	$form['questions']['selectall'] = array(
 		'#title' => 'Select all categories',
@@ -165,6 +158,17 @@ function quiz_testbank_create($form, &$form_state) {
 			'callback' => 'quiz_testbank_categories_select_all',
 			'wrapper' => 'question_categoreis_all',
 		),
+	);
+
+	unset($form_state['input']['categories']);
+	$form['questions']['categories'] = array(
+		'#title' => 'Choose questions from these categories',
+		'#type' => 'checkboxes',
+		'#prefix' => '<div id="question_categoreis_all">',
+		'#suffix' => '</div>',
+		'#multicolumn' => array('width' => 2),
+		'#options' => $options,
+		'#default_value' => $default_val,
 	);
 
 
@@ -760,6 +764,19 @@ function quiz_testbank_form_quiz_question_answering_form_alter(&$form, &$form_st
 		'#value' => 'Save Quiz',
 		'#submit' => array('quiz_testbank_navigation_quiz_save_submit'),
 	);
+
+	if (isset($form['is_doubtful'])) {
+		$form['navigation']['is_doubtful'] = $form['is_doubtful'];
+		$form['navigation']['is_doubtful']['#title'] = t('Mark');
+		$form['navigation']['is_doubtful']['#attributes'] = array('class' => array('container-inline'));
+		unset($form['navigation']['is_doubtful']['#attached']);
+		unset($form['navigation']['is_doubtful']['#prefix']);
+		unset($form['navigation']['is_doubtful']['#suffix']);
+		unset($form['is_doubtful']);
+	}
+
+	$form['navigation']['#theme'] = 'quiz_testbank_quiz_navigation';
+	//$form['navigation']['#weight'] = 10;
 	$question_nid = $form['question_nid']['#value'];
 
 	if ($quiz->feedback_time == 1 && $_SESSION['quiz_' . $quiz->nid]['hints'][$question_nid] == TRUE) {
@@ -1735,4 +1752,17 @@ function quiz_testbank_take_quiz($quiz) {
 
 
 	return $content;
+}
+
+/*
+ * Implements quiz navigation theme
+ */
+
+function theme_quiz_testbank_quiz_navigation(&$variables) {
+	$elements = $variables['navigation'];
+	$output = "";
+	foreach (element_children($elements) as $child) {
+		$output.= drupal_render($elements[$child]);
+	}
+	return $output;
 }

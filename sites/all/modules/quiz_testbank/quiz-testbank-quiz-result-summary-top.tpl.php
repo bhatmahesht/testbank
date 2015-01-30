@@ -18,10 +18,12 @@
 				<?php print $quiz->title ?>
 		</h3>
 		<div> Quiz Start Time : <?php print date('M d Y H:i:s', $result->time_start); ?> <br>
-				Quiz End Time : <?php print date('M d Y H:i:s' , $result->time_end) ?> <br>
+				Quiz End Time : <?php print date('M d Y H:i:s', $result->time_end) ?> <br>
 				Total items : <?php print $quiz->total_questions ?> <br>
 				Correct items : <?php print $result->correct_questions ?> <br>
-				Passing Score for the Quiz : <?php print $quiz->pass_rate ?> <br>
-				Score Taken by the User : <?php print $result->score ?> <br>
+				Passing Score for the Quiz : <?php print $quiz->pass_rate ?> 
+				<progress max="100" value=<?php print $quiz->pass_rate ?> > </progress><br>
+				Score Taken by the User : <?php print $result->score ?> 
+				<progress max="100" value =<?php print $result->score ?>  class= <?php print $result->score > $quiz->pass_rate ? "quiz-pass" : "quiz-fail"; ?>> </progress>
 		</div>
 </div>

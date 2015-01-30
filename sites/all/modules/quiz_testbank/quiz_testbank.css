@@ -14,6 +14,23 @@ and open the template in the editor.
     width: 100px;
 }
 
+.q-skip-button {
+    height: 200px;
+    display:none;
+}
+
+.form-item-is-doubtful{
+    display:inline;
+}
+
+.quiz-pass{
+    background-color:green;
+    
+}
+
+.quiz-fail{
+    background-color: red;
+}
 .form-item-question-mode {
     display:block;
 }
