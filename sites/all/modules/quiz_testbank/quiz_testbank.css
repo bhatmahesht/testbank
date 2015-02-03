@@ -3,17 +3,34 @@ To change this license header, choose License Headers in Project Properties.
 To change this template file, choose Tools | Templates
 and open the template in the editor.
 */
-/* 
+/*
     Created on : 21 Jan, 2015, 10:35:32 AM
     Author     : mahesh
 */
 
+#quiz-testbank-progress{
+    display: block;
+    width: 100px;
+    float: left;
+    height: 100%;
+}
 #quiz-testbank-jumper {
     display: block;
-    float: left;
     width: 100px;
+    height:90%;
 }
 
+#quiz-testbank-navigation{
+    height: 50px;
+    background-color: #EEE;
+}
+.quiz-testbank-question-outer{
+    height: 500px;
+    overflow:auto;
+    padding:5px;
+    border:2px solid;
+    border-radius: 10px;
+}
 .q-skip-button {
     height: 200px;
     display:none;
@@ -25,7 +42,7 @@ and open the template in the editor.
 
 .quiz-pass{
     background-color:green;
-    
+
 }
 
 .quiz-fail{
@@ -39,3 +56,12 @@ and open the template in the editor.
     display:block;
 }
 
+.answering-form{
+    display:block;
+    height:100%;
+    overflow:auto;
+}
+
+.countdown{
+    height:50px;
+}

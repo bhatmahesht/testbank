@@ -753,11 +753,22 @@ function quiz_testbank_exam_mode_time($form, &$form_state) {
 
 function quiz_testbank_form_quiz_question_answering_form_alter(&$form, &$form_state) {
 	//if ($form_id == 'quiz_question_answering_form') {
-	unset($form['navigation']['back']['#attributes']);
+	//unset($form['navigation']['back']['#attributes']);
 	$nid = arg(1);
 	$quiz = node_load($nid);
 
 	//}
+	$question_nid = $form['question_nid']['#value'];
+	$number_of_questions = quiz_get_number_of_questions($quiz->vid);
+	$question_number = $number_of_questions - count($_SESSION['quiz_' . $quiz->nid]['quiz_questions']);
+	$current_question = $question_number + 1;
+	$quiz_number = t('QID: @qid', array('@qid' => $question_nid));
+	$quiz_number .= t(' Question <span id="quiz-question-number">!x</span> of <span id="quiz-num-questions ">@y</span>', array('!x' => $current_question, '@y' => $number_of_questions));
+	$form['navigation']['number'] = array(
+		'#type' => 'markup',
+		'#markup' => $quiz_number,
+		'#weight' => -10,
+	);
 
 	$form['navigation']['save'] = array(
 		'#type' => 'submit',
@@ -769,6 +780,7 @@ function quiz_testbank_form_quiz_question_answering_form_alter(&$form, &$form_st
 		$form['navigation']['is_doubtful'] = $form['is_doubtful'];
 		$form['navigation']['is_doubtful']['#title'] = t('Mark');
 		$form['navigation']['is_doubtful']['#attributes'] = array('class' => array('container-inline'));
+		$form['navigation']['is_doubtful']['#weight'] = -9;
 		unset($form['navigation']['is_doubtful']['#attached']);
 		unset($form['navigation']['is_doubtful']['#prefix']);
 		unset($form['navigation']['is_doubtful']['#suffix']);
@@ -776,8 +788,8 @@ function quiz_testbank_form_quiz_question_answering_form_alter(&$form, &$form_st
 	}
 
 	$form['navigation']['#theme'] = 'quiz_testbank_quiz_navigation';
-	//$form['navigation']['#weight'] = 10;
-	$question_nid = $form['question_nid']['#value'];
+	$form['navigation']['#weight'] = -10;
+
 
 	if ($quiz->feedback_time == 1 && $_SESSION['quiz_' . $quiz->nid]['hints'][$question_nid] == TRUE) {
 
@@ -1110,14 +1122,15 @@ function theme_quiz_testbank_quiz_progress($variables) {
 	}
 
 	$output = '';
-	$output .= $quiz_jumper;
-	$output .= '<div id="quiz_progress">';
-	$output .= t('Question <span id="quiz-question-number">!x</span> of <span id="quiz-num-questions">@y</span>', array('!x' => $current_question, '@y' => $num_of_question));
-	$output .= '</div>' . "\n";
-	// Add div to be used by jQuery countdown
+	$output .= '<div id="quiz-testbank-progress">';
 	if ($variables['time_limit']) {
 		$output .= '<div class="countdown"></div>';
 	}
+	$output .= $quiz_jumper;
+	//$output .= t('Question <span id="quiz-question-number">!x</span> of <span id="quiz-num-questions">@y</span>', array('!x' => $current_question, '@y' => $num_of_question));
+	$output .= '</div>' . "\n";
+	// Add div to be used by jQuery countdown
+
 	return $output;
 }
 
@@ -1411,7 +1424,10 @@ function quiz_testbank_take($node) {
 		return $node->rendered_content;
 	}
 	$to_be_rendered = quiz_testbank_take_quiz($node);
-	return drupal_render($to_be_rendered);
+	$output = '<div class ="quiz-testbank-question-outer">';
+	$output .= drupal_render($to_be_rendered);
+	$output .="</div>";
+	return $output;
 }
 
 /*
@@ -1760,9 +1776,10 @@ function quiz_testbank_take_quiz($quiz) {
 
 function theme_quiz_testbank_quiz_navigation(&$variables) {
 	$elements = $variables['navigation'];
-	$output = "";
+	$output = '<div id= "quiz-testbank-navigation">';
 	foreach (element_children($elements) as $child) {
-		$output.= drupal_render($elements[$child]);
+		$output.= '        ' . drupal_render($elements[$child]);
 	}
+	$output .= '</div>';
 	return $output;
 }
