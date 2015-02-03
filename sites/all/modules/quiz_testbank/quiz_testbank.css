@@ -63,5 +63,8 @@ and open the template in the editor.
 }
 
 .countdown{
-    height:50px;
+    height:10%;
+}
+ul.vertical-tabs-list{
+    width:6em;
 }
