@@ -77,6 +77,9 @@ function quiz_testbank_theme() {
 		'quiz_testbank_quiz_navigation' => array(
 			'render element' => 'navigation',
 		),
+		'quiz_testbank_answering_form' => array(
+			'render element' => 'form',
+		),
 	);
 }
 
@@ -790,6 +793,8 @@ function quiz_testbank_form_quiz_question_answering_form_alter(&$form, &$form_st
 	$form['navigation']['#theme'] = 'quiz_testbank_quiz_navigation';
 	$form['navigation']['#weight'] = -10;
 
+	$form['#theme'] = 'quiz_testbank_answering_form';
+
 
 	if ($quiz->feedback_time == 1 && $_SESSION['quiz_' . $quiz->nid]['hints'][$question_nid] == TRUE) {
 
@@ -1196,7 +1201,8 @@ function quiz_testbank_question_additional_details($form, &$form_state, $questio
 			'#collapsed' => FALSE,
 		);
 		$form['vertical']['vertical_tab'] = array(
-			'#type' => 'vertical_tabs'
+			'#type' => 'vertical_tabs',
+			'#attributes' => array('class' => array('quiz-testbank-vertical-tabs-list'))
 		);
 	}
 
@@ -1779,6 +1785,23 @@ function theme_quiz_testbank_quiz_navigation(&$variables) {
 	$output = '<div id= "quiz-testbank-navigation">';
 	foreach (element_children($elements) as $child) {
 		$output.= '        ' . drupal_render($elements[$child]);
+	}
+	$output .= '</div>';
+	return $output;
+}
+
+/*
+ * Impmements answering form theme
+ */
+
+function theme_quiz_testbank_answering_form(&$variables) {
+	$form = $variables['form'];
+
+	$output = drupal_render($form['navigation']);
+	unset($form['navigation']);
+	$output .= '<div class ="quiz-testbank-answering-form">';
+	foreach (element_children($form) as $child) {
+		$output .= drupal_render($form[$child]);
 	}
 	$output .= '</div>';
 	return $output;
