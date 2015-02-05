@@ -55,6 +55,7 @@ function quiz_testbank_menu() {
 
 function quiz_testbank_menu_alter(&$items) {
 	$items['node/%node/take']['page callback'] = 'quiz_testbank_take';
+	$items['node/%node/take']['type'] = MENU_CALLBACK;
 }
 
 /*
