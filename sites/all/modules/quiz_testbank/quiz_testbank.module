@@ -1809,3 +1809,15 @@ function theme_quiz_testbank_answering_form(&$variables) {
 	$output .= '</div>';
 	return $output;
 }
+
+/*
+ * Implements preprocess function for page
+ */
+
+function quiz_testbank_preprocess_page(&$vars) {
+	$path = $_GET['q'];
+	$pagepath = 'node/' . $vars['node']->nid . "/take";
+	if ($path == $pagepath) {
+		drupal_set_title('');
+	}
+}
