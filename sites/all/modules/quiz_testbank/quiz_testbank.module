@@ -1734,7 +1734,7 @@ function quiz_testbank_take_quiz($quiz) {
 				$content['body']['feedback']['#markup'] = rawurldecode($_SESSION['quiz_' . $quiz->nid]['feedback']);
 				$content['body']['feedback']['#weight'] = -100;
 			}
-			drupal_set_title($quiz->title);
+			//drupal_set_title($quiz->title);
 			unset($_SESSION['quiz_' . $quiz->nid]['feedback']);
 		}
 	}
