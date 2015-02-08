@@ -1734,7 +1734,7 @@ function quiz_testbank_take_quiz($quiz) {
 				$content['body']['feedback']['#markup'] = rawurldecode($_SESSION['quiz_' . $quiz->nid]['feedback']);
 				$content['body']['feedback']['#weight'] = -100;
 			}
-			//drupal_set_title($quiz->title);
+			drupal_set_title($quiz->title);
 			unset($_SESSION['quiz_' . $quiz->nid]['feedback']);
 		}
 	}
@@ -1817,7 +1817,18 @@ function theme_quiz_testbank_answering_form(&$variables) {
 function quiz_testbank_preprocess_page(&$vars) {
 	$path = $_GET['q'];
 	$pagepath = 'node/' . $vars['node']->nid . "/take";
+//	if ($path == $pagepath) {
+//		drupal_set_title('');
+//	}
+}
+
+/*
+ * Implements process function for page
+ */
+function quiz_testbank_process_page(&$vars) {
+	$path = current_path();
+	$pagepath = 'node/' . $vars['node']->nid . '/take';
 	if ($path == $pagepath) {
-		drupal_set_title('');
+		$vars['title'] = '';
 	}
 }
