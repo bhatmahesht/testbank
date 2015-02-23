@@ -1832,3 +1832,6 @@ function quiz_testbank_process_page(&$vars) {
 		$vars['title'] = '';
 	}
 }
+/*
+ * Implements new change
+ */
